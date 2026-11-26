@@ -85,6 +85,11 @@ $request = Join-Path $env:TEMP "windows-child-session-$id.json"
 - 如果执行器启动失败，先核对 `status` 返回的父子会话 ID。可以在已打开的子桌面中运行 `WindowsChildSession.exe executor <parentSessionId> <childSessionId>`。在父桌面执行这条命令会得到明确的会话不匹配错误。
 - 如果结果暂不可确认，使用同一个任务 ID 查询 `status` 并查看已有日志。启动中断后，执行器仍可能写入最终结果。
 
-卸载前可取消当前任务并等待结果。用普通用户运行 `stop` 和 `uninstall-executor`，然后移除发布目录和已复制的 Skill。任务和日志保存在发布目录旁的 `tasks` 目录，可按需要保留。如果本次安装才启用机器级功能，可用管理员 PowerShell 运行 `feature disable`，然后移除发布文件。
+按以下顺序卸载：
+
+1. 用普通用户运行 `status`。如有活动任务，等待任务结束，或用 `cancel <taskId>` 取消并确认最终结果。
+2. 运行 `stop`，用 `status` 确认 `connection` 为 `host_not_running`，再运行 `uninstall-executor` 注销执行器。
+3. 如果本次安装才启用了机器级子会话功能，且希望将其还原，在管理员 PowerShell 中用同一个可执行文件运行 `feature disable`。
+4. 移除发布文件和已复制的 Skill。任务记录和日志位于 `%LOCALAPPDATA%\WindowsChildSession\tasks\<taskId>`，自定义发布路径也使用这个位置。需要保留历史结果时，请保留 `tasks` 目录。
 
 目标机验收及复跑命令见 [验收记录](docs/acceptance.md)。
