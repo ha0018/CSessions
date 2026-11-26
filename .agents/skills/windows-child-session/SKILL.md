@@ -1,11 +1,15 @@
 ---
 name: windows-child-session
-description: Run, query, or cancel an explicitly requested project command inside the current Windows user's local RDS child session. Use when a build, test, or probe must run in that child session and the caller needs the actual session ID, exit code, or logs.
+description: Run, query, or cancel an explicitly requested project command in the current Windows user's local RDS child session, or open Chrome, Edge, or Brave on that child desktop.
 ---
 
 # Windows child session
 
 Use PowerShell in the signed-in Windows parent session. Resolve the executable from a user-provided location, then `$env:WINDOWS_CHILD_SESSION_EXE`, then `$env:LOCALAPPDATA\WindowsChildSession\bin\WindowsChildSession.exe`. If it is missing, report the searched path and refer to the installation steps in the source project's `README.md`. Use the user's current Windows account for the task.
+
+To open Chrome, Edge, or Brave, run the [bundled browser launcher](scripts/Open-ChildSessionBrowser.ps1) from the parent session. Resolve the script relative to this `SKILL.md` and pass `-Browser Chrome`, `-Browser Edge`, or `-Browser Brave`. Use `-Cli` or `-BrowserPath` for custom executable locations. The default profile is `$env:LOCALAPPDATA\Chrome-ChildSession` for all three browsers. Use `-UserDataDir` when the user wants a separate profile. A profile in use on the parent desktop can prevent a new window from opening in the child session.
+
+The launcher submits a detached task. Query its task ID until `running` and verify that `processSessionId` matches `childSessionId` and differs from `parentSessionId`. Confirm window visibility on the child desktop when needed. The open browser occupies the executor's single task slot.
 
 For a new task, resolve the project directory and executable to absolute paths. Check the project's declared command when the user names an action such as “build”. Resolve a script or package-manager shim through its actual executable and preserve arguments as an array. For instance, invoke a PowerShell script as `pwsh.exe -NoProfile -File <script-path>` or a pnpm JavaScript entry via `node.exe <pnpm-entry> run build`. The executor inherits the child session's environment. If a required environment setup exists in a project script, use that script.
 

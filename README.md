@@ -25,7 +25,7 @@ dotnet publish .\src\WindowsChildSession -c Release -r win-x64 --self-contained 
 
 `install-executor` 在任务计划程序注册一个当前用户的按需任务。每次缺少执行器时，宿主用 `RunEx` 指定 Windows 返回且已经登录的子会话 ID。登录后仍以实际进程握手为准。更新程序前先运行 `stop` 和 `uninstall-executor`。运行中的任务可先取消并等待结果。更新后重新注册。 [Microsoft Learn](https://learn.microsoft.com/windows/win32/api/taskschd/nf-taskschd-iregisteredtask-runex)
 
-项目内的 Codex 可用 `$windows-child-session` 调用 Skill。要在其他项目使用，将 `.agents\skills\windows-child-session` 目录复制到 `%USERPROFILE%\.agents\skills`。可以设置 `WINDOWS_CHILD_SESSION_EXE` 指向自定义的发布位置。
+项目内的 Codex 可用 `$windows-child-session` 调用 Skill。要在其他项目使用，将整个 `.agents\skills\windows-child-session` 目录（含 `scripts` 子目录）复制到 `%USERPROFILE%\.agents\skills`。浏览器启动脚本随 Skill 一起安装。可以设置 `WINDOWS_CHILD_SESSION_EXE` 指向自定义的发布位置。
 
 ## 运行任务
 
