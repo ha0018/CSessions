@@ -1,5 +1,7 @@
 # Windows 子会话 Skill
 
+简体中文 · [English](README.en.md)
+
 在已登录的 Windows 桌面中启动本机 RDS 子会话，把指定项目命令交给子会话内的执行器。CLI 返回 Windows 实测的进程会话 ID、退出码和两份日志。首版面向同一台电脑上的一个 Windows 用户，每次运行一个任务。
 
 ## 安装
