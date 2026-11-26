@@ -6,6 +6,35 @@ Run a project command on a local Windows Remote Desktop Services (RDS) child des
 
 ## Installation
 
+### Install the skill locally
+
+If you already have a checkout, open its root directory in PowerShell 7. For a fresh checkout, run:
+
+```powershell
+git clone https://github.com/ha0018/CSessions.git
+Set-Location CSessions
+```
+
+Run the following commands in a non-elevated PowerShell session. They install both `SKILL.md` and the browser launcher for the current user and print the installed paths. With their default settings, Codex, DeepSeek Harness, and Gemini CLI share `%USERPROFILE%\.agents\skills`. Claude Code reads `%USERPROFILE%\.claude\skills`.
+
+```powershell
+$source = (Resolve-Path -LiteralPath '.\.agents\skills\windows-child-session' -ErrorAction Stop).Path
+foreach ($root in @('.agents\skills', '.claude\skills')) {
+    $target = Join-Path $env:USERPROFILE "$root\windows-child-session"
+    $null = New-Item -ItemType Directory -Path $target -Force -ErrorAction Stop
+    Get-ChildItem -LiteralPath $source -Force -ErrorAction Stop |
+        Copy-Item -Destination $target -Recurse -Force -ErrorAction Stop
+    Get-Item -LiteralPath (Join-Path $target 'SKILL.md'), (Join-Path $target 'scripts\Open-ChildSessionBrowser.ps1') -ErrorAction Stop |
+        Select-Object -ExpandProperty FullName
+}
+```
+
+Open a new local client session. Enter `$windows-child-session` in Codex or `/windows-child-session` in Claude Code. In Gemini CLI, use `/skills list`. In DeepSeek Harness, ask to use `windows-child-session` by name. When using Codex inside this repository, you can skip the copy step because the project already includes the skill.
+
+**To update the skill**, run `git pull --ff-only origin main` on the repository's `main` branch. After it succeeds, rerun the copy commands. This updates the instructions and scripts used by the clients. To run child-session tasks for the first time or update the local `WindowsChildSession.exe`, follow the executor steps below.
+
+### Install the Windows executor
+
 You need Windows 10 or 11, the built-in Remote Desktop ActiveX control, PowerShell 7, and the [.NET 10 SDK](https://learn.microsoft.com/dotnet/core/install/windows).
 
 From the project root, publish a self-contained executable in a non-elevated PowerShell session. The example targets x64. For ARM64, use `win-arm64` and run the acceptance script on the target machine before relying on the build.
@@ -29,7 +58,7 @@ Return to the non-elevated PowerShell session to register the executor for your 
 
 `install-executor` registers an on-demand task in Windows Task Scheduler. When the executor is needed, the host calls `RunEx` with the ID of the signed-in child session reported by Windows. The host then verifies the session of the executor process during the handshake. Before updating the executable, let any active task finish or cancel it and confirm its result. Run `stop` and `uninstall-executor`, update the executable, then run `install-executor` again. [Microsoft Learn: IRegisteredTask::RunEx](https://learn.microsoft.com/windows/win32/api/taskschd/nf-taskschd-iregisteredtask-runex)
 
-In this repository, invoke the Codex skill with `$windows-child-session`. To use it in other projects, copy the entire `.agents\skills\windows-child-session` directory into `%USERPROFILE%\.agents\skills`, including the `scripts` subdirectory containing the browser launcher. If you publish the CLI elsewhere, set `WINDOWS_CHILD_SESSION_EXE` to the full path of the executable.
+If you publish the CLI elsewhere, set `WINDOWS_CHILD_SESSION_EXE` to the full path of the executable. In your local client, ask `windows-child-session` to run `probe`. Verify that `processSessionId` matches `childSessionId` and differs from `parentSessionId`.
 
 ## Run a task
 

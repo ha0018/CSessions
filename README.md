@@ -6,6 +6,35 @@
 
 ## 安装
 
+### 安装 Skill 到本地
+
+如果已有本仓库，先在 PowerShell 7 中进入仓库根目录。首次下载可运行：
+
+```powershell
+git clone https://github.com/ha0018/CSessions.git
+Set-Location CSessions
+```
+
+在普通用户的 PowerShell 中运行下面的命令。它将 `SKILL.md` 和浏览器启动脚本一起安装到当前用户的两个目录，并列出已安装的文件。使用默认配置时，Codex、DeepSeek Harness 和 Gemini CLI 共用 `%USERPROFILE%\.agents\skills`，Claude Code 使用 `%USERPROFILE%\.claude\skills`。
+
+```powershell
+$source = (Resolve-Path -LiteralPath '.\.agents\skills\windows-child-session' -ErrorAction Stop).Path
+foreach ($root in @('.agents\skills', '.claude\skills')) {
+    $target = Join-Path $env:USERPROFILE "$root\windows-child-session"
+    $null = New-Item -ItemType Directory -Path $target -Force -ErrorAction Stop
+    Get-ChildItem -LiteralPath $source -Force -ErrorAction Stop |
+        Copy-Item -Destination $target -Recurse -Force -ErrorAction Stop
+    Get-Item -LiteralPath (Join-Path $target 'SKILL.md'), (Join-Path $target 'scripts\Open-ChildSessionBrowser.ps1') -ErrorAction Stop |
+        Select-Object -ExpandProperty FullName
+}
+```
+
+打开新的本地客户端会话。在 Codex 中输入 `$windows-child-session`，在 Claude Code 中输入 `/windows-child-session`，在 Gemini CLI 中用 `/skills list` 查看列表，在 DeepSeek Harness 中按名称请求使用 `windows-child-session`。本仓库自带项目级 Skill，直接在这里使用 Codex 时可以跳过复制步骤。
+
+**更新 Skill** 时，在仓库的 `main` 分支运行 `git pull --ff-only origin main`，成功后重新运行上面的复制命令。这会更新客户端读取的说明和脚本。首次运行子会话任务，或要更新本机的 `WindowsChildSession.exe` 时，请继续下面的执行器安装步骤。
+
+### 安装 Windows 执行器
+
 需要 Windows 10 或 11、系统内置的远程桌面 ActiveX 控件和 [.NET 10 SDK](https://learn.microsoft.com/dotnet/core/install/windows)。在普通用户的 PowerShell 7 中，从项目根目录发布自包含程序。下面以 x64 为例。ARM64 需要改用对应的 RID 并先运行验收脚本。
 
 ```powershell
@@ -27,7 +56,7 @@ dotnet publish .\src\WindowsChildSession -c Release -r win-x64 --self-contained 
 
 `install-executor` 在任务计划程序注册一个当前用户的按需任务。每次缺少执行器时，宿主用 `RunEx` 指定 Windows 返回且已经登录的子会话 ID。登录后仍以实际进程握手为准。更新程序前先运行 `stop` 和 `uninstall-executor`。运行中的任务可先取消并等待结果。更新后重新注册。 [Microsoft Learn](https://learn.microsoft.com/windows/win32/api/taskschd/nf-taskschd-iregisteredtask-runex)
 
-项目内的 Codex 可用 `$windows-child-session` 调用 Skill。要在其他项目使用，将整个 `.agents\skills\windows-child-session` 目录（含 `scripts` 子目录）复制到 `%USERPROFILE%\.agents\skills`。浏览器启动脚本随 Skill 一起安装。可以设置 `WINDOWS_CHILD_SESSION_EXE` 指向自定义的发布位置。
+如果发布到自定义目录，将 `WINDOWS_CHILD_SESSION_EXE` 设为可执行文件的完整路径。可在本地客户端请求使用 `windows-child-session` 运行 `probe`，确认 `processSessionId` 等于 `childSessionId` 且不同于 `parentSessionId`。
 
 ## 运行任务
 
