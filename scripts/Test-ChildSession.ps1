@@ -93,6 +93,13 @@ Assert-Value $probeOutput.processSessionId $probe.childSessionId 'independent pr
 $repeat = Invoke-Run $probeRequest
 Assert-Value $repeat.updatedAt $probe.updatedAt 'duplicate request timestamp'
 
+# Cancel as soon as submission returns, without waiting for the worker's running record.
+$handoffRequest = New-Request $powerShell @('-NoProfile','-Command','Start-Sleep -Seconds 60')
+$null = Invoke-Run $handoffRequest -Detach
+$handoffCancel = & $Cli cancel $handoffRequest.Id | ConvertFrom-Json
+Assert-Value $handoffCancel.status 'cancelling' 'early cancellation acknowledgement'
+$null = Wait-Task $handoffRequest 'cancelled'
+
 $wrongSession = & $Cli executor $probe.parentSessionId $probe.childSessionId | ConvertFrom-Json
 if ($wrongSession.error -notmatch 'Executor session mismatch') { throw 'Parent session executor was not rejected.' }
 

@@ -135,9 +135,6 @@ internal sealed class Host(RdpWindow window, uint parent)
             }
             if (reply.Status != "accepted")
                 throw new IOException(reply.Error ?? "The executor did not confirm dispatch.");
-            if (cancel.IsCancellationRequested)
-                await LocalPipe.Call(LocalPipe.ExecutorName(child), child, new PipeRequest("cancel", TaskId: spec.TaskId))
-                    .ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -157,12 +154,27 @@ internal sealed class Host(RdpWindow window, uint parent)
         }
         finally
         {
+            bool forwardCancel;
             lock (gate)
             {
+                // A later Cancel routes directly to the executor once preparing is cleared.
+                forwardCancel = sent && cancel.IsCancellationRequested;
                 preparing = null;
                 preparingCancel = null;
                 lease.Dispose();
                 cancel.Dispose();
+            }
+            if (forwardCancel && result.ChildSessionId is { } child)
+            {
+                try
+                {
+                    await LocalPipe.Call(LocalPipe.ExecutorName(child), child, new PipeRequest("cancel", TaskId: spec.TaskId))
+                        .ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    Volatile.Write(ref connectionError, $"Could not confirm cancellation of task {spec.TaskId}: {ex.Message}");
+                }
             }
         }
     }
