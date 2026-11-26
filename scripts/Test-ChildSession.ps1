@@ -46,9 +46,11 @@ function New-Request([string]$Program, [string[]]$Arguments, [int]$TimeoutSecond
     return @{ Path = $path; Id = $taskId }
 }
 
-function Invoke-Run($Request, [switch]$Detach) {
+function Invoke-Run($Request, [switch]$Detach, [int]$ExpectedCliExitCode = 0) {
     if ($Detach) { $json = & $Cli run --request $Request.Path --detach }
     else { $json = & $Cli run --request $Request.Path }
+    $cliExitCode = $LASTEXITCODE
+    Assert-Value $cliExitCode $ExpectedCliExitCode "run CLI exit code for $($Request.Id) ($json)"
     return $json | ConvertFrom-Json
 }
 
@@ -105,7 +107,7 @@ if ($wrongSession.error -notmatch 'Executor session mismatch') { throw 'Parent s
 
 $argumentsToCheck = @('带 空格', 'quote " inside', '尾部\')
 $failedRequest = New-Request $powerShell (@('-NoProfile','-File',$fixture,'output') + $argumentsToCheck)
-$failed = Invoke-Run $failedRequest
+$failed = Invoke-Run $failedRequest -ExpectedCliExitCode 10
 Assert-Value $failed.status 'process_failed' "failure status $($failed.error)"
 Assert-Value $failed.exitCode 7 'process exit code'
 Assert-Value $failed.childSessionId $probe.childSessionId 'reused child session'
@@ -115,10 +117,10 @@ for ($index = 0; $index -lt $argumentsToCheck.Count; $index++) {
 }
 Assert-Value ((Get-Content -LiteralPath $failed.stderrPath -Raw).Trim()) '标准错误' 'stderr'
 
-$invalidProgram = Invoke-Run (New-Request (Join-Path $testRoot '不存在.exe') @())
+$invalidProgram = Invoke-Run (New-Request (Join-Path $testRoot '不存在.exe') @()) -ExpectedCliExitCode 11
 Assert-Value $invalidProgram.status 'start_failed' 'missing program'
 if ($invalidProgram.error -notmatch 'Executable does not exist') { throw $invalidProgram.error }
-$invalidDirectory = Invoke-Run (New-Request $Cli @('probe') -Cwd (Join-Path $testRoot '不存在'))
+$invalidDirectory = Invoke-Run (New-Request $Cli @('probe') -Cwd (Join-Path $testRoot '不存在')) -ExpectedCliExitCode 11
 Assert-Value $invalidDirectory.status 'start_failed' 'invalid working directory'
 if ($invalidDirectory.error -notmatch 'Working directory does not exist') { throw $invalidDirectory.error }
 
@@ -126,6 +128,7 @@ $timedRequest = New-Request $powerShell @('-NoProfile','-File',$fixture,'tree') 
 $null = Invoke-Run $timedRequest -Detach
 $descendant = Read-Descendant (Wait-Task $timedRequest 'running')
 $timed = Wait-Task $timedRequest 'timed_out'
+$null = Invoke-Run $timedRequest -ExpectedCliExitCode 12
 if (!$descendant.WaitForExit(3000)) { throw 'Descendant survived timeout.' }
 $descendant.Dispose()
 
@@ -140,6 +143,7 @@ try {
     $cancelling = & $Cli cancel $cancelRequest.Id | ConvertFrom-Json
     Assert-Value $cancelling.status 'cancelling' "cancel acknowledgement $($cancelling.error)"
     $cancelled = Wait-Task $cancelRequest 'cancelled'
+    $null = Invoke-Run $cancelRequest -ExpectedCliExitCode 13
     if (!$descendant.WaitForExit(3000)) { throw 'Descendant survived cancellation.' }
 }
 finally {
