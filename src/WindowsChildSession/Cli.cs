@@ -84,10 +84,13 @@ internal static class Cli
         switch (args)
         {
             case ["status"]:
-                if (await TryContact(parent, "status") is { Service: { } service })
+                var hostStatus = await ContactHost(parent, "status");
+                if (hostStatus.Service is { } service)
                     return Output(service);
+                var absent = hostStatus.Status == "host_not_running";
                 return Output(new ServiceStatus(parent, WindowsSessions.Enabled(), WindowsSessions.ChildId(),
-                    "host_not_running", false, null, ReadHostError(parent)));
+                    absent ? "host_not_running" : "unknown", false, null, absent ? ReadHostError(parent) : hostStatus.Error),
+                    absent ? 0 : 1);
             case ["status", var id]:
                 return ReadResult(Guid.Parse(id));
             case ["run", "--request", var file]:
@@ -132,8 +135,9 @@ internal static class Cli
             case ["disconnect"]:
             case ["stop"]:
                 WindowsSessions.RequireInteractiveUser();
-                var reply = await TryContact(parent, args[0]) ?? new PipeReply("host_not_running");
-                return Output(reply, reply.Status == "error" ? 1 : 0);
+                var reply = await ContactHost(parent, args[0]);
+                var expected = args[0] == "stop" ? "stopping" : "disconnected";
+                return Output(reply, reply.Status == expected || reply.Status == "host_not_running" ? 0 : 1);
             default:
                 return Output(new { status = "invalid_arguments", error = "Run WindowsChildSession.exe --help for usage." }, 2);
         }
@@ -226,6 +230,15 @@ internal static class Cli
         using var limit = new CancellationTokenSource(TimeSpan.FromMilliseconds(950));
         try { return await LocalPipe.Call(LocalPipe.HostName(parent), parent, new PipeRequest(action), limit.Token); }
         catch (Exception ex) when (ex is IOException or OperationCanceledException) { return null; }
+    }
+
+    private static async Task<PipeReply> ContactHost(uint parent, string action)
+    {
+        if (await TryContact(parent, action) is { } reply)
+            return reply;
+        return TaskStore.HostIsAbsent(parent)
+            ? new PipeReply("host_not_running")
+            : new PipeReply("host_unresponsive", Error: $"The host still holds its session lock. No reply confirmed '{action}'.");
     }
 
     private static string HostErrorPath(uint id) => Path.Combine(TaskStore.Root, $"host-{id}.error");

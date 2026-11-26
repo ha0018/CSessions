@@ -15,7 +15,7 @@ internal sealed class Host(RdpWindow window, uint parent)
     {
         WindowsSessions.RequireInteractiveUser();
         var parent = WindowsSessions.CurrentId;
-        using var singleton = TaskStore.TryLease($"host-{parent}");
+        using var singleton = TaskStore.AcquireHostLease(parent);
         if (singleton is null)
             return;
         using var pipe = LocalPipe.OpenServer(LocalPipe.HostName(parent));

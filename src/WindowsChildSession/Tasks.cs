@@ -124,6 +124,28 @@ internal static class TaskStore
             return null;
         }
     }
+
+    public static FileStream? AcquireHostLease(uint session) => WithHostLease(session, lease => lease);
+
+    public static bool HostIsAbsent(uint session) => WithHostLease(session, lease =>
+    {
+        lease?.Dispose();
+        return lease is not null;
+    });
+
+    // Release a probe's temporary lease before a concurrent host attempts startup.
+    private static T WithHostLease<T>(uint session, Func<FileStream?, T> action)
+    {
+        using var gate = new Mutex(false, $"Local\\WindowsChildSession.{WindowsSessions.UserSid}.host-lease.{session}");
+        try
+        {
+            if (!gate.WaitOne(TimeSpan.FromSeconds(1)))
+                throw new TimeoutException("Could not verify ownership of the host session lock.");
+        }
+        catch (AbandonedMutexException) { /* The previous caller exited while opening the file. */ }
+        try { return action(TryLease($"host-{session}")); }
+        finally { gate.ReleaseMutex(); }
+    }
 }
 
 internal sealed record ServiceStatus(uint ParentSessionId, bool ChildSessionsEnabled, uint? ChildSessionId,

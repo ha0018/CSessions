@@ -49,6 +49,7 @@ $request = Join-Path $env:TEMP "windows-child-session-$id.json"
 - `run --request <file>` 等待结果。追加 `--detach` 可在受理后立即返回。相同任务 ID 和参数会读取原任务状态，已使用的 ID 配上不同参数时返回 `conflict`。
 - `cancel <taskId>` 请求取消，之后用 `status <taskId>` 等待 `cancelled` 或其他已确定的结果。中断等待中的 CLI 后仍可用同一个 ID 查询。
 - `connect` 打开或复用子桌面，`disconnect` 断开当前 RDP 连接，`stop` 关闭父会话宿主。向已断开的子会话派发新的任务时会尝试重连。
+- `stop` 返回 `stopping` 表示宿主已受理关闭请求。可用 `status` 确认连接状态变为 `host_not_running`。若宿主仍占用会话锁且未回复，`stop` 和 `disconnect` 返回 `host_unresponsive`，退出码为 1。
 
 `program` 接受绝对路径指向的 `.exe` 或 `.com` 文件。普通程序按 Windows C 运行时规则接收参数。对于 PowerShell 脚本，使用 `pwsh.exe -NoProfile -File` 和脚本路径。对于 pnpm，可用实际的 `node.exe` 和 pnpm 的 JavaScript 入口。命令继承子会话环境，构建依赖的路径和版本以该环境为准。
 
