@@ -103,6 +103,31 @@ The JSON field `exitCode` belongs to the task's root process. The final column b
 
 The executor creates the process suspended in a Windows Job Object. It checks the process's actual session ID before resuming it, then waits for the entire process tree to exit. A timeout or cancellation terminates the tree. The named pipes between the parent and child sessions use an explicit access control list for the current user, reject remote clients, and verify the Windows session of each peer process. [Job Objects](https://learn.microsoft.com/windows/win32/procthread/job-objects) · [Named Pipe Security and Access Rights](https://learn.microsoft.com/windows/win32/ipc/named-pipe-security-and-access-rights)
 
+## Call from Python
+
+Install the Windows CLI first. From the repository root in the parent session, install the client into your Python 3.10+ environment.
+
+```powershell
+python -m pip install .\python
+```
+
+```python
+import sys
+from pathlib import Path
+from windows_child_session import ChildSession
+
+session = ChildSession()
+result = session.run(sys.executable, ["-X", "utf8", "-c", "print('Hello from the child session')"])
+if result["status"] == "completed":
+    print(Path(result["stdoutPath"]).read_text(encoding="utf-8"))
+else:
+    print(result["status"], result["exitCode"], result["error"])
+```
+
+`run()` connects automatically and waits for the task by default. Supply an absolute executable path. The working directory defaults to Python's current directory. Pass `detach=True` to get the task record on submission, then use `session.status(result["taskId"])` to query it or `session.cancel(result["taskId"])` to request cancellation. Supply a fixed `task_id` to retry the same request.
+
+`status()`, `connect()`, `disconnect()` and `stop()` correspond to the CLI commands. Calling `stop()` requests child session logoff. Methods return dictionaries with the CLI's JSON field names. Task failures, timeouts and cancellations return task records. A rejected CLI request raises `ChildSessionError` with the CLI's JSON reply in `response`. To use a custom installation, pass `ChildSession(cli=path)` or set `WINDOWS_CHILD_SESSION_EXE`.
+
 ## Open a browser in the child session
 
 From the project root in the parent desktop's PowerShell session, run the launcher with `Chrome`, `Edge`, or `Brave`.

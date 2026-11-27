@@ -99,6 +99,31 @@ $request = Join-Path $env:TEMP "windows-child-session-$id.json"
 
 进程挂起创建并加入 Windows Job Object。执行器核对实际会话 ID 后恢复进程，等待整个受管进程树退出。超时或取消时终止整棵树。父子会话的命名管道使用当前用户的显式 ACL，拒绝远程客户端并检查双方进程的实际 Windows 会话。 [Job Objects](https://learn.microsoft.com/windows/win32/procthread/job-objects) · [命名管道访问权限](https://learn.microsoft.com/windows/win32/ipc/named-pipe-security-and-access-rights)
 
+## 从 Python 调用
+
+安装好 Windows CLI 后，在父会话中使用 Python 3.10 或更高版本。从仓库根目录将客户端安装到你的 Python 环境。
+
+```powershell
+python -m pip install .\python
+```
+
+```python
+import sys
+from pathlib import Path
+from windows_child_session import ChildSession
+
+session = ChildSession()
+result = session.run(sys.executable, ["-X", "utf8", "-c", "print('来自子会话')"])
+if result["status"] == "completed":
+    print(Path(result["stdoutPath"]).read_text(encoding="utf-8"))
+else:
+    print(result["status"], result["exitCode"], result["error"])
+```
+
+`run()` 自动连接子会话，默认等待任务结束。`program` 使用可执行文件的绝对路径，`cwd` 默认为 Python 当前目录。传入 `detach=True` 可立即取得任务记录，再用 `session.status(result["taskId"])` 查询或用 `session.cancel(result["taskId"])` 请求取消。传入固定的 `task_id` 可用同一组参数重试。
+
+`status()`、`connect()`、`disconnect()` 和 `stop()` 与同名 CLI 命令对应。`stop()` 会请求注销子会话。返回值是保留 CLI 字段名的字典。任务非零退出、超时或取消时仍返回任务记录。CLI 拒绝请求时抛出 `ChildSessionError`，其 `response` 属性包含 CLI 返回的 JSON。自定义安装可传入 `ChildSession(cli=可执行文件路径)` 或设置 `WINDOWS_CHILD_SESSION_EXE`。
+
 ## 在子会话中打开浏览器
 
 在父会话的 PowerShell 中运行以下命令。将 `Chrome` 替换为 `Edge` 或 `Brave` 即可打开对应浏览器。

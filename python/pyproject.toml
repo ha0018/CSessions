@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "windows-child-session"
+version = "0.1.0"
+description = "Python client for the local Windows Child Session CLI"
+requires-python = ">=3.10"
+
+[tool.setuptools]
+py-modules = ["windows_child_session"]
