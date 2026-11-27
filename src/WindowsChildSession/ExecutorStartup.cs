@@ -14,6 +14,10 @@ internal static class ExecutorStartup
         var path = Environment.ProcessPath ?? throw new InvalidOperationException("Cannot locate the executable.");
         if (!string.Equals(Path.GetFileName(path), "WindowsChildSession.exe", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Use the published WindowsChildSession.exe to install the executor.");
+        var directory = Path.GetDirectoryName(path)!;
+        var executor = Path.Combine(directory, "WindowsChildSession.Executor.exe");
+        if (!File.Exists(executor))
+            throw new FileNotFoundException("The published executor is missing.", executor);
         using var user = WindowsIdentity.GetCurrent();
         dynamic service = Connect();
         dynamic task = service.NewTask(0);
@@ -27,8 +31,8 @@ internal static class ExecutorStartup
         task.Settings.ExecutionTimeLimit = "PT0S";
         task.Settings.MultipleInstances = 0; // Parallel starts are checked by the per-session pipe.
         dynamic action = task.Actions.Create(0);
-        action.Path = path;
-        action.WorkingDirectory = Path.GetDirectoryName(path);
+        action.Path = executor;
+        action.WorkingDirectory = directory;
         action.Arguments = "executor $(Arg0) $(Arg1) $(Arg2)";
         dynamic folder = service.GetFolder(@"\");
         folder.RegisterTaskDefinition(Name, task, 6, user.Name, null, InteractiveToken, null);

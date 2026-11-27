@@ -57,6 +57,24 @@ internal static class WindowsSessions
         finally { WTSFreeMemory(buffer); }
     }
 
+    public static void LogOffChild()
+    {
+        const int errorNotFound = 1168;
+        if (!WTSGetChildSessionId(out var child))
+        {
+            var error = Marshal.GetLastWin32Error();
+            if (error == errorNotFound)
+                return;
+            throw new Win32Exception(error);
+        }
+        if (child == uint.MaxValue)
+            return;
+        if (child == 0 || child == CurrentId)
+            throw new InvalidOperationException($"Invalid child session ID {child}.");
+        if (!WTSLogoffSession(IntPtr.Zero, child, wait: false))
+            throw new Win32Exception();
+    }
+
     public static void SetEnabled(bool value)
     {
         if (!IsAdministrator)
@@ -86,6 +104,9 @@ internal static class WindowsSessions
 
     [DllImport("wtsapi32.dll", SetLastError = true)]
     private static extern bool WTSGetChildSessionId(out uint sessionId);
+
+    [DllImport("wtsapi32.dll", SetLastError = true)]
+    private static extern bool WTSLogoffSession(nint server, uint sessionId, bool wait);
 
     [DllImport("wtsapi32.dll", SetLastError = true)]
     private static extern bool WTSEnableChildSessions(bool enabled);

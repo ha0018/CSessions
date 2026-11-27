@@ -40,7 +40,6 @@ internal sealed class Host(RdpWindow window, uint parent)
         };
         Application.Run(window);
         stop.Cancel();
-        // Closing the window terminates the host. The child owns every accepted process tree.
         if (server is { IsCompleted: true, IsFaulted: true })
             server.GetAwaiter().GetResult();
     }
@@ -252,7 +251,7 @@ internal sealed class Host(RdpWindow window, uint parent)
                     if (state == 1 && child is > 0 && child != parent && WindowsSessions.IsSignedIn(child.Value))
                     {
                         Volatile.Write(ref lastChild, child.Value);
-                        await window.InvokeAsync(() => window.SetMessage($"Windows child session {child}"), deadline.Token);
+                        await window.InvokeAsync(() => window.ShowConnected(child.Value), deadline.Token);
                         return child.Value;
                     }
                     if (state == 0)

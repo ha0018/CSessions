@@ -9,4 +9,25 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
+
+  <!-- Both entry points run the same assembly. Task Scheduler uses the GUI apphost
+       so Windows never allocates a console for the background executor. -->
+  <Target Name="IncludeExecutorAppHost" BeforeTargets="AssignTargetPaths" Condition="'$(UseAppHost)' == 'true'">
+    <ItemGroup>
+      <None Include="$(IntermediateOutputPath)WindowsChildSession.Executor.exe" Link="WindowsChildSession.Executor.exe"
+            CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+  </Target>
+  <Target Name="CreateExecutorAppHost" AfterTargets="_CreateAppHost" Condition="'$(UseAppHost)' == 'true'"
+          Inputs="$(AppHostSourcePath);@(IntermediateAssembly);$(MSBuildProjectFullPath)"
+          Outputs="$(IntermediateOutputPath)WindowsChildSession.Executor.exe">
+    <CreateAppHost AppHostSourcePath="$(AppHostSourcePath)"
+                   AppHostDestinationPath="$(IntermediateOutputPath)WindowsChildSession.Executor.exe"
+                   AppBinaryName="$(TargetFileName)"
+                   IntermediateAssembly="@(IntermediateAssembly->'%(FullPath)')"
+                   WindowsGraphicalUserInterface="true" />
+    <ItemGroup>
+      <FileWrites Include="$(IntermediateOutputPath)WindowsChildSession.Executor.exe" />
+    </ItemGroup>
+  </Target>
 </Project>
